@@ -20,3 +20,21 @@ services:
         "--output",
         "data/processed"
       ]
+
+  recruiter-ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: future_ml_task3_recruiter_ui
+    volumes:
+      - ./data:/app/data
+    ports:
+      - "8501:8501"
+    command:
+      [
+        "streamlit",
+        "run",
+        "streamlit_app.py",
+        "--server.address=0.0.0.0",
+        "--server.port=8501"
+      ]

@@ -24,6 +24,43 @@ class ResumeScreeningPipeline:
     def __init__(self) -> None:
         self.skill_extractor = SkillExtractor()
 
+    @staticmethod
+    def _prepare_resumes_dataframe(resumes: pd.DataFrame) -> pd.DataFrame:
+        """Validate and normalize resume dataframe into expected schema."""
+        missing_columns = REQUIRED_COLUMNS.difference(resumes.columns)
+        if missing_columns:
+            missing = ", ".join(sorted(missing_columns))
+            raise ValueError(f"Missing required resume columns: {missing}")
+
+        normalized = resumes.copy()
+
+        if "candidate_id" not in normalized.columns:
+            normalized["candidate_id"] = [
+                f"CAND_{idx:03d}" for idx in range(1, len(normalized) + 1)
+            ]
+
+        if "candidate_name" not in normalized.columns:
+            normalized["candidate_name"] = [
+                f"Candidate {idx}" for idx in range(1, len(normalized) + 1)
+            ]
+
+        normalized = normalized[
+            ["candidate_id", "candidate_name", "resume_text"]
+        ].copy()
+        normalized["resume_text"] = normalized["resume_text"].fillna("").astype(str)
+        normalized["candidate_name"] = (
+            normalized["candidate_name"].fillna("").astype(str).str.strip()
+        )
+        blank_name_mask = normalized["candidate_name"].eq("")
+        if blank_name_mask.any():
+            for row_index in normalized.index[blank_name_mask]:
+                normalized.at[row_index, "candidate_name"] = (
+                    f"Candidate {row_index + 1}"
+                )
+
+        normalized = normalized.reset_index(drop=True)
+        return normalized
+
     def _load_resumes(self, resumes_path: str) -> pd.DataFrame:
         path = Path(resumes_path)
         if path.suffix.lower() == ".csv":
@@ -33,24 +70,7 @@ class ResumeScreeningPipeline:
         else:
             raise ValueError("Resumes file must be CSV or JSON.")
 
-        missing_columns = REQUIRED_COLUMNS.difference(resumes.columns)
-        if missing_columns:
-            missing = ", ".join(sorted(missing_columns))
-            raise ValueError(f"Missing required resume columns: {missing}")
-
-        if "candidate_id" not in resumes.columns:
-            resumes["candidate_id"] = [
-                f"CAND_{idx:03d}" for idx in range(1, len(resumes) + 1)
-            ]
-
-        if "candidate_name" not in resumes.columns:
-            resumes["candidate_name"] = [
-                f"Candidate {idx}" for idx in range(1, len(resumes) + 1)
-            ]
-
-        resumes = resumes[["candidate_id", "candidate_name", "resume_text"]].copy()
-        resumes["resume_text"] = resumes["resume_text"].fillna("")
-        return resumes
+        return self._prepare_resumes_dataframe(resumes)
 
     @staticmethod
     def _load_job_description(job_description_path: str) -> str:
@@ -71,15 +91,14 @@ class ResumeScreeningPipeline:
 
         return sorted(required), sorted(important)
 
-    def run(
+    def score_resumes(
         self,
-        resumes_path: str,
-        job_description_path: str,
+        resumes_df: pd.DataFrame,
+        job_description: str,
         role: str,
-        output_dir: str,
-    ) -> Dict[str, str]:
-        resumes = self._load_resumes(resumes_path)
-        job_description = self._load_job_description(job_description_path)
+    ) -> Tuple[pd.DataFrame, Dict[str, object]]:
+        """Compute ranking dataframe and explainable summary without writing files."""
+        resumes = self._prepare_resumes_dataframe(resumes_df)
         required_skills, important_skills = self._build_role_skill_targets(
             role, job_description
         )
@@ -136,14 +155,6 @@ class ResumeScreeningPipeline:
         )
         ranking_df.insert(0, "rank", range(1, len(ranking_df) + 1))
 
-        output_path = Path(output_dir)
-        output_path.mkdir(parents=True, exist_ok=True)
-
-        ranking_file = output_path / "candidate_ranking.csv"
-        summary_file = output_path / "screening_summary.json"
-
-        ranking_df.to_csv(ranking_file, index=False)
-
         summary = {
             "role": role,
             "total_candidates": int(len(ranking_df)),
@@ -153,10 +164,36 @@ class ResumeScreeningPipeline:
                 ranking_df.iloc[0]["candidate_name"] if not ranking_df.empty else None
             ),
             "weights": SCORING_WEIGHTS,
-            "artifacts": {
-                "ranking": str(ranking_file),
-                "summary": str(summary_file),
-            },
+        }
+
+        return ranking_df, summary
+
+    def run(
+        self,
+        resumes_path: str,
+        job_description_path: str,
+        role: str,
+        output_dir: str,
+    ) -> Dict[str, str]:
+        resumes = self._load_resumes(resumes_path)
+        job_description = self._load_job_description(job_description_path)
+        ranking_df, summary = self.score_resumes(
+            resumes_df=resumes,
+            job_description=job_description,
+            role=role,
+        )
+
+        output_path = Path(output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
+
+        ranking_file = output_path / "candidate_ranking.csv"
+        summary_file = output_path / "screening_summary.json"
+
+        ranking_df.to_csv(ranking_file, index=False)
+
+        summary["artifacts"] = {
+            "ranking": str(ranking_file),
+            "summary": str(summary_file),
         }
 
         summary_file.write_text(json.dumps(summary, indent=2), encoding="utf-8")

@@ -4,3 +4,5 @@ scikit-learn==1.5.2
 spacy==3.8.7
 nltk==3.9.1
 python-dotenv==1.0.1
+streamlit==1.44.1
+kaggle==1.7.4.5

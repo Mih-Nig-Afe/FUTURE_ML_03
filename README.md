@@ -23,6 +23,8 @@ Hiring teams review hundreds of resumes per role. This solution speeds up shortl
 - Weighted role-fit scoring
 - Candidate ranking
 - Skill-gap identification
+- Recruiter-facing Streamlit web UI
+- Direct ingestion and mapping of Kaggle resume dataset
 - Dockerized execution
 
 ## Project Structure
@@ -42,14 +44,18 @@ FUTURE_ML_03/
     TASK3_REQUIREMENTS_STATUS.md
   scripts/
     download_kaggle_datasets.sh
+    ingest_kaggle_resume_dataset.sh
     run_local.sh
+    run_streamlit.sh
   src/
     config.py
+    kaggle_ingestion.py
     text_preprocessing.py
     skill_extraction.py
     scoring.py
     pipeline.py
     run_pipeline.py
+  streamlit_app.py
   Dockerfile
   docker-compose.yml
   requirements.txt
@@ -111,6 +117,45 @@ docker run --rm -v "$(pwd)/data:/app/data" future-ml-task3
 docker compose up --build
 ```
 
+### Streamlit UI with Docker Compose
+
+```bash
+docker compose up --build recruiter-ui
+```
+
+Then open: <http://localhost:8501>
+
+## Streamlit Recruiter UI (Local)
+
+```bash
+bash scripts/run_streamlit.sh
+```
+
+The UI lets recruiters:
+
+- choose role profile,
+- select resume source (sample, mapped Kaggle data, or uploaded CSV),
+- provide job description text,
+- run scoring and ranking,
+- inspect missing required skills per candidate,
+- download ranking and summary outputs.
+
+## Kaggle Ingestion (Direct)
+
+This project directly ingests one required dataset:
+
+- `snehaanbhawal/resume-dataset`
+
+Mapped output used by pipeline:
+
+- `data/raw/resumes_kaggle_mapped.csv`
+
+Run ingestion:
+
+```bash
+bash scripts/ingest_kaggle_resume_dataset.sh
+```
+
 ## Kaggle Dataset Commands (Optional)
 
 Use the helper script:
@@ -120,6 +165,23 @@ bash scripts/download_kaggle_datasets.sh
 ```
 
 Datasets referenced:
+
+- Required command format from task prompt:
+
+```bash
+{#!/bin/bash
+kaggle datasets download snehaanbhawal/resume-dataset}
+```
+
+```bash
+{#!/bin/bash
+kaggle datasets download ravindrasinghrana/job-description-dataset}
+```
+
+```bash
+{#!/bin/bash
+kaggle datasets download PromptCloudHQ/us-jobs-on-monstercom}
+```
 
 - <https://www.kaggle.com/datasets/snehaanbhawal/resume-dataset>
 - <https://www.kaggle.com/datasets/ravindrasinghrana/job-description-dataset>

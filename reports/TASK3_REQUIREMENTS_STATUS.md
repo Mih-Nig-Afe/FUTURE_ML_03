@@ -1,3 +1,11 @@
+<!--
+ * @Author: Mih-Nig-Afe 90252194+Mih-Nig-Afe@users.noreply.github.com
+ * @Date: 2026-04-08 17:27:43
+ * @LastEditors: Mih-Nig-Afe 90252194+Mih-Nig-Afe@users.noreply.github.com
+ * @LastEditTime: 2026-04-08 19:10:33
+ * @FilePath: /FUTURE_ML_01/FUTURE_ML_03/reports/TASK3_REQUIREMENTS_STATUS.md
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+-->
 # ML Task 3 Requirements Status
 
 ## Mandatory Features
@@ -9,6 +17,8 @@
 - [x] Candidate ranking based on role fit
 - [x] Skill gap identification (missing required skills per candidate)
 - [x] Explainable score breakdown for non-technical users
+- [x] Recruiter-facing Streamlit scoring and ranking UI
+- [x] Direct Kaggle ingestion and mapping to pipeline format
 - [x] Dockerized execution
 
 ## Explainability Provided
