@@ -1,0 +1,16 @@
+Job Title: Data Scientist (Talent Intelligence)
+
+We are hiring a Data Scientist to build machine learning solutions for recruitment analytics and candidate screening.
+
+Responsibilities:
+- Build and evaluate machine learning models in Python.
+- Work with SQL and pandas to prepare and clean large candidate datasets.
+- Perform statistical analysis and communicate findings to HR and business teams.
+- Design feature engineering workflows for ranking quality.
+- Build clear data visualization outputs for recruiters.
+
+Required Skills:
+Python, SQL, Statistics, Machine Learning, pandas, scikit-learn, data visualization
+
+Preferred Skills:
+Natural Language Processing, Deep Learning, AWS, Docker, Communication

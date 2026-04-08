@@ -1,0 +1,9 @@
+candidate_id,candidate_name,resume_text
+CAND_001,Alice Mulu,"Data Scientist with 4 years of experience using Python, SQL, pandas, scikit-learn, and statistics. Built customer churn prediction and demand forecasting models. Strong in feature engineering, data visualization, and communication with business teams."
+CAND_002,Brian Tadesse,"Machine Learning Engineer experienced in Python, docker, kubernetes, pytorch, tensorflow, and AWS. Built NLP services and model deployment pipelines. Familiar with Git, ETL, and large-scale data processing."
+CAND_003,Caleb Bekele,"Data Analyst focused on SQL, Excel, Tableau, and Power BI dashboards. Performs A/B testing, business reporting, and stakeholder presentations. Basic Python and statistics for ad hoc analysis."
+CAND_004,Dina Gebre,"AI Research Intern with deep learning and natural language processing projects using Python and PyTorch. Worked on text classification and sentiment analysis. Limited exposure to SQL and production tooling."
+CAND_005,Elias Worku,"Business Intelligence Specialist with Excel, Tableau, SQL, and project management skills. Delivers KPI dashboards and weekly performance reviews. No hands-on machine learning experience yet."
+CAND_006,Frehiwot Alem,"Senior Data Scientist with Python, SQL, machine learning, deep learning, scikit-learn, xgboost, AWS, docker, feature engineering, and data mining. Led forecasting and recommendation initiatives end-to-end."
+CAND_007,Girma Teshome,"Software Engineer transitioning to data roles. Comfortable with Python, Git, docker, and cloud deployment. Built APIs and automation scripts. Limited background in statistics and analytics."
+CAND_008,Hanna Ayele,"Applied Scientist with Python, statistics, machine learning, NLP, pandas, scikit-learn, and data visualization. Developed resume parsing and candidate ranking prototypes for HR-tech use cases."

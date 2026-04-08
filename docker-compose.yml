@@ -1,0 +1,22 @@
+services:
+  resume-screening:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: future_ml_task3_resume_screening
+    volumes:
+      - ./data:/app/data
+    command:
+      [
+        "python",
+        "-m",
+        "src.run_pipeline",
+        "--resumes",
+        "data/raw/resumes_sample.csv",
+        "--job",
+        "data/raw/job_description_data_scientist.txt",
+        "--role",
+        "data_scientist",
+        "--output",
+        "data/processed"
+      ]
