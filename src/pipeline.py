@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+import errno
+import time
+from io import BytesIO
 from pathlib import Path
 from typing import Dict, Tuple
 
@@ -16,6 +19,8 @@ from src.skill_extraction import SkillExtractor
 from src.text_preprocessing import preprocess_for_vectorizer
 
 REQUIRED_COLUMNS = {"resume_text"}
+EDEADLOCK_RETRIES = 5
+EDEADLOCK_INITIAL_DELAY_SECONDS = 0.2
 
 
 class ResumeScreeningPipeline:
@@ -61,20 +66,37 @@ class ResumeScreeningPipeline:
         normalized = normalized.reset_index(drop=True)
         return normalized
 
+    @staticmethod
+    def _read_path_bytes_with_retry(path: Path) -> bytes:
+        delay = EDEADLOCK_INITIAL_DELAY_SECONDS
+        for attempt in range(1, EDEADLOCK_RETRIES + 1):
+            try:
+                return path.read_bytes()
+            except OSError as exc:
+                if exc.errno != errno.EDEADLK or attempt == EDEADLOCK_RETRIES:
+                    raise
+                time.sleep(delay)
+                delay *= 2
+
+        raise RuntimeError("Unreachable retry state while reading file bytes.")
+
     def _load_resumes(self, resumes_path: str) -> pd.DataFrame:
         path = Path(resumes_path)
+        file_payload = self._read_path_bytes_with_retry(path)
+        buffer = BytesIO(file_payload)
+
         if path.suffix.lower() == ".csv":
-            resumes = pd.read_csv(path)
+            resumes = pd.read_csv(buffer)
         elif path.suffix.lower() == ".json":
-            resumes = pd.read_json(path)
+            resumes = pd.read_json(buffer)
         else:
             raise ValueError("Resumes file must be CSV or JSON.")
 
         return self._prepare_resumes_dataframe(resumes)
 
-    @staticmethod
-    def _load_job_description(job_description_path: str) -> str:
-        return Path(job_description_path).read_text(encoding="utf-8")
+    def _load_job_description(self, job_description_path: str) -> str:
+        payload = self._read_path_bytes_with_retry(Path(job_description_path))
+        return payload.decode("utf-8")
 
     def _build_role_skill_targets(
         self, role: str, job_description_text: str
@@ -188,6 +210,11 @@ class ResumeScreeningPipeline:
 
         ranking_file = output_path / "candidate_ranking.csv"
         summary_file = output_path / "screening_summary.json"
+
+        # On macOS+iCloud bind mounts, stale placeholder files can fail on overwrite.
+        for artifact_file in (ranking_file, summary_file):
+            if artifact_file.exists():
+                artifact_file.unlink()
 
         ranking_df.to_csv(ranking_file, index=False)
 

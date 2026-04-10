@@ -16,6 +16,10 @@ models/*
 !models/.gitkeep
 data/processed/*
 !data/processed/.gitkeep
+data/raw/kaggle/
+data/raw/resumes_kaggle_mapped.csv
+data/raw/job_descriptions_kaggle_mapped.csv
+data/raw/job_description_generated_*.txt
 
 # OS
 .DS_Store
@@ -23,3 +27,8 @@ data/processed/*
 # Tooling
 .vscode/
 .idea/
+
+# Local secrets
+.env
+.env.*
+!.env.example

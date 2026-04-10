@@ -1,0 +1,22 @@
+# VCS and local tooling
+.git/
+.vscode/
+.idea/
+
+# Python environments and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+
+# Local secrets
+.env
+.env.*
+!.env.example
+
+# Runtime data is mounted as a volume; exclude from image build context
+data/
+models/

@@ -1,9 +1,36 @@
 services:
+  task3-kaggle-ingestion:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: future_ml_task3_kaggle_ingestion
+    profiles:
+      - kaggle
+    volumes:
+      - ./data:/app/data
+      - ${HOME}/.kaggle:/root/.kaggle:ro
+    environment:
+      - KAGGLE_API_TOKEN=${KAGGLE_API_TOKEN:-}
+      - KAGGLE_USERNAME=${KAGGLE_USERNAME:-}
+      - KAGGLE_KEY=${KAGGLE_KEY:-}
+    command: ["bash", "scripts/ingest_kaggle_resume_dataset.sh"]
+
   resume-screening:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: future_ml_task3_resume_screening
+    volumes:
+      - ./data:/app/data
+    command: ["bash", "scripts/run_task3_kaggle_pipeline.sh"]
+
+  resume-screening-sample:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: future_ml_task3_resume_screening_sample
+    profiles:
+      - sample
     volumes:
       - ./data:/app/data
     command:
@@ -28,6 +55,11 @@ services:
     container_name: future_ml_task3_recruiter_ui
     volumes:
       - ./data:/app/data
+      - ${HOME}/.kaggle:/root/.kaggle:ro
+    environment:
+      - KAGGLE_API_TOKEN=${KAGGLE_API_TOKEN:-}
+      - KAGGLE_USERNAME=${KAGGLE_USERNAME:-}
+      - KAGGLE_KEY=${KAGGLE_KEY:-}
     ports:
       - "8501:8501"
     command:

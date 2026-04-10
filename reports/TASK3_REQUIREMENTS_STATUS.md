@@ -19,7 +19,12 @@
 - [x] Explainable score breakdown for non-technical users
 - [x] Recruiter-facing Streamlit scoring and ranking UI
 - [x] Direct Kaggle ingestion and mapping to pipeline format
+- [x] Integration of all required datasets:
+  - [x] snehaanbhawal/resume-dataset
+  - [x] ravindrasinghrana/job-description-dataset
+  - [x] PromptCloudHQ/us-jobs-on-monstercom
 - [x] Dockerized execution
+- [x] Docker Compose profile for Task 3 Kaggle ingestion
 
 ## Explainability Provided
 
@@ -33,3 +38,6 @@
 
 - `data/processed/candidate_ranking.csv`
 - `data/processed/screening_summary.json`
+- `data/raw/resumes_kaggle_mapped.csv`
+- `data/raw/job_descriptions_kaggle_mapped.csv`
+- `data/raw/job_description_generated_data_scientist.txt`

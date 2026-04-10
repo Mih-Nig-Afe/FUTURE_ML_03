@@ -24,7 +24,7 @@ Hiring teams review hundreds of resumes per role. This solution speeds up shortl
 - Candidate ranking
 - Skill-gap identification
 - Recruiter-facing Streamlit web UI
-- Direct ingestion and mapping of Kaggle resume dataset
+- Direct ingestion and mapping of all required Task 3 Kaggle datasets
 - Dockerized execution
 
 ## Project Structure
@@ -45,6 +45,7 @@ FUTURE_ML_03/
   scripts/
     download_kaggle_datasets.sh
     ingest_kaggle_resume_dataset.sh
+    run_real_kaggle_docker_stack.sh
     run_local.sh
     run_streamlit.sh
   src/
@@ -117,6 +118,32 @@ docker run --rm -v "$(pwd)/data:/app/data" future-ml-task3
 docker compose up --build
 ```
 
+The default `resume-screening` service now runs with mapped Kaggle artifacts (not sample files).
+
+### Task 3 Kaggle Ingestion in Docker (All Required Datasets)
+
+This runs the required dataset downloads and mapping inside Docker.
+
+```bash
+docker compose --profile kaggle run --rm task3-kaggle-ingestion
+```
+
+Notes:
+
+- Mounts host Kaggle credentials from `${HOME}/.kaggle` into container.
+- Or provide `KAGGLE_API_TOKEN` environment variable (preferred).
+- Legacy fallback: `KAGGLE_USERNAME` and `KAGGLE_KEY`.
+- Produces mapped artifacts under `data/raw/`.
+
+Quick credential setup:
+
+```bash
+cp .env.example .env
+```
+
+Then fill in your Kaggle username/key in `.env`.
+If you are using the API token flow, set `KAGGLE_API_TOKEN` in `.env`.
+
 ### Streamlit UI with Docker Compose
 
 ```bash
@@ -134,26 +161,44 @@ bash scripts/run_streamlit.sh
 The UI lets recruiters:
 
 - choose role profile,
-- select resume source (sample, mapped Kaggle data, or uploaded CSV),
+- select resume source (mapped Task 3 Kaggle data or uploaded CSV),
+- choose job description source (generated from mapped Kaggle jobs or manual/uploaded),
 - provide job description text,
 - run scoring and ranking,
 - inspect missing required skills per candidate,
 - download ranking and summary outputs.
 
-## Kaggle Ingestion (Direct)
+## Kaggle Ingestion (Direct, All Required Datasets)
 
-This project directly ingests one required dataset:
+This project directly ingests all required Task 3 datasets:
 
 - `snehaanbhawal/resume-dataset`
+- `ravindrasinghrana/job-description-dataset`
+- `PromptCloudHQ/us-jobs-on-monstercom`
 
-Mapped output used by pipeline:
+Mapped outputs used by the screening system:
 
 - `data/raw/resumes_kaggle_mapped.csv`
+- `data/raw/job_descriptions_kaggle_mapped.csv`
+- `data/raw/job_description_generated_data_scientist.txt`
 
-Run ingestion:
+Run one-command Task 3 ingestion:
 
 ```bash
 bash scripts/ingest_kaggle_resume_dataset.sh
+```
+
+Or run module directly:
+
+```bash
+python -m src.kaggle_ingestion \
+  --mode all \
+  --download-dir data/raw/kaggle \
+  --extract-dir data/raw/kaggle/extracted \
+  --resumes-output data/raw/resumes_kaggle_mapped.csv \
+  --jobs-output data/raw/job_descriptions_kaggle_mapped.csv \
+  --generated-jd-output data/raw/job_description_generated_data_scientist.txt \
+  --role data_scientist
 ```
 
 ## Kaggle Dataset Commands (Optional)
@@ -186,6 +231,38 @@ kaggle datasets download PromptCloudHQ/us-jobs-on-monstercom}
 - <https://www.kaggle.com/datasets/snehaanbhawal/resume-dataset>
 - <https://www.kaggle.com/datasets/ravindrasinghrana/job-description-dataset>
 - <https://www.kaggle.com/datasets/PromptCloudHQ/us-jobs-on-monstercom>
+
+## End-to-End Docker Workflow
+
+1. Ingest and map required Kaggle datasets:
+
+```bash
+docker compose --profile kaggle run --rm task3-kaggle-ingestion
+```
+
+1. Run scoring pipeline:
+
+```bash
+docker compose up --build resume-screening
+```
+
+Or run locally on mapped Kaggle artifacts:
+
+```bash
+bash scripts/run_task3_kaggle_pipeline.sh
+```
+
+1. Launch recruiter UI:
+
+```bash
+docker compose up --build recruiter-ui
+```
+
+One-command run (real Kaggle data + pipeline + UI):
+
+```bash
+bash scripts/run_real_kaggle_docker_stack.sh
+```
 
 ## Business-Facing Interpretation
 

@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import errno
 import json
+import time
+from io import BytesIO
 from pathlib import Path
 
 import pandas as pd
@@ -10,20 +13,59 @@ import streamlit as st
 
 from src.config import ROLE_PROFILES
 from src.kaggle_ingestion import (
+    DEFAULT_JOB_DATASET,
+    DEFAULT_JOB_DESCRIPTION_DATASET,
     DEFAULT_RESUME_DATASET,
-    ingest_resume_dataset_from_kaggle,
+    ingest_task3_required_datasets,
 )
 from src.pipeline import ResumeScreeningPipeline
 
-DEFAULT_RESUME_PATH = Path("data/raw/resumes_sample.csv")
 DEFAULT_KAGGLE_MAPPED_PATH = Path("data/raw/resumes_kaggle_mapped.csv")
-DEFAULT_JOB_PATH = Path("data/raw/job_description_data_scientist.txt")
+DEFAULT_JOBS_MAPPED_PATH = Path("data/raw/job_descriptions_kaggle_mapped.csv")
+DEFAULT_GENERATED_JD_PATH = Path(
+    "data/raw/job_description_generated_data_scientist.txt"
+)
+DEFAULT_KAGGLE_DOWNLOAD_DIR = Path("data/raw/kaggle")
+TASK3_REQUIRED_ARCHIVES = (
+    DEFAULT_KAGGLE_DOWNLOAD_DIR / "resume-dataset.zip",
+    DEFAULT_KAGGLE_DOWNLOAD_DIR / "job-description-dataset.zip",
+    DEFAULT_KAGGLE_DOWNLOAD_DIR / "us-jobs-on-monstercom.zip",
+)
+EDEADLOCK_RETRIES = 5
+EDEADLOCK_INITIAL_DELAY_SECONDS = 0.2
+
+
+def _read_path_bytes_with_retry(path: Path) -> bytes:
+    delay = EDEADLOCK_INITIAL_DELAY_SECONDS
+    for attempt in range(1, EDEADLOCK_RETRIES + 1):
+        try:
+            return path.read_bytes()
+        except OSError as exc:
+            if exc.errno != errno.EDEADLK or attempt == EDEADLOCK_RETRIES:
+                raise
+            time.sleep(delay)
+            delay *= 2
+
+    raise RuntimeError("Unreachable retry state while reading file bytes.")
+
+
+def _load_csv(path: Path) -> pd.DataFrame:
+    payload = _read_path_bytes_with_retry(path)
+    return pd.read_csv(BytesIO(payload))
 
 
 def _load_text(path: Path, fallback: str) -> str:
-    if path.exists():
-        return path.read_text(encoding="utf-8")
-    return fallback
+    if not path.exists():
+        return fallback
+
+    try:
+        payload = _read_path_bytes_with_retry(path)
+    except OSError as exc:
+        if exc.errno == errno.EDEADLK:
+            return fallback
+        raise
+
+    return payload.decode("utf-8", errors="ignore")
 
 
 def _explode_skills(column: pd.Series) -> pd.Series:
@@ -66,44 +108,54 @@ def main() -> None:
 
         source_type = st.radio(
             "Resume source",
-            options=["Sample data", "Mapped Kaggle dataset", "Upload CSV"],
+            options=["Mapped Task 3 Kaggle data", "Upload CSV"],
             index=0,
         )
 
         resume_df: pd.DataFrame | None = None
 
-        if source_type == "Sample data":
-            if DEFAULT_RESUME_PATH.exists():
-                resume_df = pd.read_csv(DEFAULT_RESUME_PATH)
-                st.success(f"Loaded sample resumes from {DEFAULT_RESUME_PATH}")
-            else:
-                st.error("Sample resume file not found.")
-
-        elif source_type == "Mapped Kaggle dataset":
+        if source_type == "Mapped Task 3 Kaggle data":
             st.write(
-                "Required Kaggle source used for ingestion: "
-                f"{DEFAULT_RESUME_DATASET}"
+                "Required Task 3 Kaggle datasets used: "
+                f"{DEFAULT_RESUME_DATASET}, "
+                f"{DEFAULT_JOB_DATASET}, "
+                f"{DEFAULT_JOB_DESCRIPTION_DATASET}"
             )
             if st.button(
-                "Download + map Kaggle resume dataset", use_container_width=True
+                "Download + map all Task 3 Kaggle datasets", use_container_width=True
             ):
                 try:
-                    output_path = ingest_resume_dataset_from_kaggle(
-                        dataset_slug=DEFAULT_RESUME_DATASET,
-                        download_dir=Path("data/raw/kaggle"),
-                        extract_dir=Path("data/raw/kaggle/extracted/resume-dataset"),
-                        output_csv=DEFAULT_KAGGLE_MAPPED_PATH,
-                        skip_download=False,
+                    use_local_archives = all(
+                        archive_path.exists()
+                        for archive_path in TASK3_REQUIRED_ARCHIVES
                     )
-                    st.success(f"Dataset mapped successfully: {output_path}")
+                    artifacts = ingest_task3_required_datasets(
+                        download_dir=DEFAULT_KAGGLE_DOWNLOAD_DIR,
+                        extract_dir=Path("data/raw/kaggle/extracted"),
+                        resumes_output_csv=DEFAULT_KAGGLE_MAPPED_PATH,
+                        jobs_output_csv=DEFAULT_JOBS_MAPPED_PATH,
+                        generated_jd_output_txt=DEFAULT_GENERATED_JD_PATH,
+                        role_key=role,
+                        skip_download=use_local_archives,
+                    )
+                    if use_local_archives:
+                        st.info(
+                            "Using existing Kaggle ZIP archives from data/raw/kaggle. "
+                            "Delete those ZIP files if you want to force fresh download."
+                        )
+                    st.success("Task 3 datasets mapped successfully.")
+                    st.write(artifacts)
                 except Exception as exc:
                     st.error(f"Kaggle ingestion failed: {exc}")
 
             if DEFAULT_KAGGLE_MAPPED_PATH.exists():
-                resume_df = pd.read_csv(DEFAULT_KAGGLE_MAPPED_PATH)
-                st.success(
-                    f"Loaded mapped Kaggle data from {DEFAULT_KAGGLE_MAPPED_PATH}"
-                )
+                try:
+                    resume_df = _load_csv(DEFAULT_KAGGLE_MAPPED_PATH)
+                    st.success(
+                        f"Loaded mapped Kaggle data from {DEFAULT_KAGGLE_MAPPED_PATH}"
+                    )
+                except Exception as exc:
+                    st.error(f"Could not load mapped Kaggle resumes: {exc}")
             else:
                 st.info(
                     "No mapped Kaggle file found yet. Use the button above to create it."
@@ -118,22 +170,54 @@ def main() -> None:
         st.divider()
         st.subheader("Job Description")
 
-        default_job_text = _load_text(
-            DEFAULT_JOB_PATH,
-            fallback=(
-                "Data Scientist role requiring Python, SQL, Statistics, Machine Learning, "
-                "pandas, scikit-learn, and data visualization."
-            ),
+        job_source = st.radio(
+            "Job description source",
+            options=[
+                "Generated from mapped Task 3 job datasets",
+                "Upload .txt / edit manually",
+            ],
+            index=0,
         )
-        uploaded_job = st.file_uploader("Upload job description (.txt)", type=["txt"])
 
-        if uploaded_job is not None:
-            job_description = uploaded_job.read().decode("utf-8", errors="ignore")
+        default_job_text = (
+            "Paste a role-specific job description here or upload a .txt file."
+        )
+
+        generated_job_text = _load_text(
+            DEFAULT_GENERATED_JD_PATH,
+            fallback="",
+        )
+        if DEFAULT_GENERATED_JD_PATH.exists() and not generated_job_text:
+            st.warning(
+                "Generated job description file exists but could not be read right now. "
+                "You can still paste/upload text or regenerate Task 3 datasets."
+            )
+
+        if job_source == "Generated from mapped Task 3 job datasets":
+            if not DEFAULT_GENERATED_JD_PATH.exists():
+                st.info(
+                    "Generated job description not found yet. "
+                    "Run Task 3 Kaggle ingestion from the resume source section."
+                )
+            job_description = st.text_area(
+                "Generated job description text",
+                value=generated_job_text or default_job_text,
+                height=260,
+                key="job_description_generated",
+            )
         else:
+            uploaded_job = st.file_uploader(
+                "Upload job description (.txt)",
+                type=["txt"],
+                key="uploaded_job_description",
+            )
+            if uploaded_job is not None:
+                default_job_text = uploaded_job.read().decode("utf-8", errors="ignore")
             job_description = st.text_area(
                 "Job description text",
                 value=default_job_text,
                 height=260,
+                key="job_description_manual",
             )
 
         run_clicked = st.button(
