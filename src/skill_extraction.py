@@ -1,5 +1,7 @@
 """Skill extraction powered by spaCy PhraseMatcher."""
 
+from __future__ import annotations
+
 from typing import Iterable, Set
 
 import spacy
